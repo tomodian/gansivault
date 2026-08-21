@@ -144,7 +144,7 @@ func (a *App) viewAction(_ context.Context, cmd *cli.Command) error {
 }
 
 // createAction implements "gansivault create".
-func (a *App) createAction(_ context.Context, cmd *cli.Command) error {
+func (a *App) createAction(ctx context.Context, cmd *cli.Command) error {
 	path, err := singleFileArg(cmd, "create")
 	if err != nil {
 		return err
@@ -159,7 +159,7 @@ func (a *App) createAction(_ context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	plaintext, err := a.editInTemp(path, nil)
+	plaintext, err := a.editInTemp(ctx, path, nil)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (a *App) createAction(_ context.Context, cmd *cli.Command) error {
 
 // editAction implements "gansivault edit". The vault id of the original file
 // is preserved unless --encrypt-vault-id says otherwise.
-func (a *App) editAction(_ context.Context, cmd *cli.Command) error {
+func (a *App) editAction(ctx context.Context, cmd *cli.Command) error {
 	path, err := singleFileArg(cmd, "edit")
 	if err != nil {
 		return err
@@ -206,7 +206,7 @@ func (a *App) editAction(_ context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 
-	edited, err := a.editInTemp(path, plaintext)
+	edited, err := a.editInTemp(ctx, path, plaintext)
 	if err != nil {
 		return err
 	}
@@ -328,7 +328,7 @@ func (a *App) encryptStringAction(_ context.Context, cmd *cli.Command) error {
 // editInTemp writes seed to a temporary file next to target, opens it in an
 // editor and returns the edited bytes. Keeping the temp file in the same
 // directory keeps plaintext off a possibly world-readable /tmp.
-func (a *App) editInTemp(target string, seed []byte) ([]byte, error) {
+func (a *App) editInTemp(ctx context.Context, target string, seed []byte) ([]byte, error) {
 	tmp, err := createTemp(filepath.Dir(target), ".gansivault-*")
 	if err != nil {
 		return nil, fmt.Errorf("gansivault: %w", err)
@@ -346,7 +346,7 @@ func (a *App) editInTemp(target string, seed []byte) ([]byte, error) {
 		return nil, fmt.Errorf("gansivault: %w", err)
 	}
 
-	if err := a.edit(name); err != nil {
+	if err := a.edit(ctx, name); err != nil {
 		return nil, fmt.Errorf("gansivault: editor failed: %w", err)
 	}
 

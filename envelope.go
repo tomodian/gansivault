@@ -132,7 +132,7 @@ func ParseEnvelope(vaultText []byte) (*Envelope, error) {
 
 	body, err := hex.DecodeString(payload.String())
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrMalformedEnvelope, err)
+		return nil, fmt.Errorf("%w: %w", ErrMalformedEnvelope, err)
 	}
 
 	env.Body = body

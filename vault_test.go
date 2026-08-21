@@ -99,7 +99,7 @@ func TestRoundTrip(t *testing.T) {
 				t.Fatalf("Decrypt: %v", err)
 			}
 
-			if !bytes.Equal(got, want) && !(len(got) == 0 && len(want) == 0) {
+			if !bytes.Equal(got, want) {
 				t.Fatalf("got %q, want %q", got, want)
 			}
 		})

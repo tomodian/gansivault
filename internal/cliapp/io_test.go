@@ -50,20 +50,20 @@ func TestLaunchEditor(t *testing.T) {
 	var out, errOut bytes.Buffer
 
 	t.Run("runs the command with the path appended", func(t *testing.T) {
-		if err := launchEditor("/bin/sh -c", "cat \"$0\"", strings.NewReader(""), &out, &errOut); err != nil {
+		if err := launchEditor(t.Context(), "/bin/sh -c", "cat \"$0\"", strings.NewReader(""), &out, &errOut); err != nil {
 			t.Fatalf("launchEditor: %v", err)
 		}
 	})
 
 	t.Run("reports command failure", func(t *testing.T) {
-		err := launchEditor("/bin/sh -c", "exit 7", strings.NewReader(""), &out, &errOut)
+		err := launchEditor(t.Context(), "/bin/sh -c", "exit 7", strings.NewReader(""), &out, &errOut)
 		if err == nil {
 			t.Fatal("want an error")
 		}
 	})
 
 	t.Run("rejects an empty editor", func(t *testing.T) {
-		err := launchEditor("   ", path, strings.NewReader(""), &out, &errOut)
+		err := launchEditor(t.Context(), "   ", path, strings.NewReader(""), &out, &errOut)
 		if err == nil || !strings.Contains(err.Error(), "$EDITOR") {
 			t.Fatalf("got %v", err)
 		}
@@ -77,7 +77,7 @@ func TestAppEditUsesTheConfiguredEditor(t *testing.T) {
 
 	app := &App{Stdin: strings.NewReader(""), Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 
-	if err := app.edit(filepath.Join(t.TempDir(), "f")); err != nil {
+	if err := app.edit(t.Context(), filepath.Join(t.TempDir(), "f")); err != nil {
 		t.Fatalf("edit: %v", err)
 	}
 }

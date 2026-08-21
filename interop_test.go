@@ -154,7 +154,7 @@ func TestInteropWithRealAnsibleVault(t *testing.T) {
 			t.Fatalf("writing the playbook: %v", err)
 		}
 
-		cmd := exec.Command(playbookBin, "-i", "localhost,", "--vault-password-file", passFile, playbook)
+		cmd := exec.CommandContext(t.Context(), playbookBin, "-i", "localhost,", "--vault-password-file", passFile, playbook)
 		cmd.Dir = sub
 
 		out, err := cmd.CombinedOutput()
@@ -172,7 +172,7 @@ func TestInteropWithRealAnsibleVault(t *testing.T) {
 func runAnsible(t *testing.T, bin string, args ...string) []byte {
 	t.Helper()
 
-	cmd := exec.Command(bin, args...)
+	cmd := exec.CommandContext(t.Context(), bin, args...)
 
 	var stdout, stderr bytes.Buffer
 

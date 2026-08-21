@@ -14,6 +14,10 @@ import (
 
 // Flag names, kept as constants so the actions and the flag definitions cannot
 // drift apart.
+//
+// line flag names, not credentials.
+//
+//nolint:gosec // G101 fires on the "password" in these names; they are command
 const (
 	flagVaultID              = "vault-id"
 	flagVaultPasswordFile    = "vault-password-file"
@@ -61,19 +65,20 @@ func (a *App) prompt() gansivault.PromptFunc {
 	return newPrompt(a.Stdin, a.Stderr)
 }
 
-// edit opens path in an editor.
-func (a *App) edit(path string) error {
+// edit opens path in an editor. Cancelling ctx, which is the command's own
+// context, tears the editor down with it.
+func (a *App) edit(ctx context.Context, path string) error {
 	if a.Editor != nil {
 		return a.Editor(path)
 	}
 
-	return launchEditor(editorCommand(), path, a.Stdin, a.Stdout, a.Stderr)
+	return launchEditor(ctx, editorCommand(), path, a.Stdin, a.Stdout, a.Stderr)
 }
 
 // note writes a status line to standard error, the way ansible-vault reports
 // "Encryption successful".
 func (a *App) note(format string, args ...any) {
-	fmt.Fprintf(a.Stderr, format+"\n", args...)
+	_, _ = fmt.Fprintf(a.Stderr, format+"\n", args...)
 }
 
 // passwordFlags are the password-source flags shared by every subcommand.
@@ -230,7 +235,7 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 	app := &App{Stdin: stdin, Stdout: stdout, Stderr: stderr}
 
 	if err := app.Run(ctx, args); err != nil {
-		fmt.Fprintf(stderr, "ERROR! %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "ERROR! %v\n", err)
 
 		return 1
 	}

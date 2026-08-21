@@ -147,7 +147,10 @@ func (s *FileSecret) runScript() ([]byte, error) {
 		path = "." + string(filepath.Separator) + path
 	}
 
-	cmd := exec.Command(path, args...) // #nosec G204 -- executing the user's own password script is the point
+	// #nosec G204 -- executing the user's own password script is the point
+	//nolint:noctx // Secret.Bytes has no context by design; ansible-vault does
+	// not time password scripts out either.
+	cmd := exec.Command(path, args...)
 
 	var stdout, stderr bytes.Buffer
 

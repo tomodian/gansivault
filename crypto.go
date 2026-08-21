@@ -98,7 +98,7 @@ func parsePayload(body []byte) (*payload, error) {
 	for i, field := range fields {
 		raw, err := hex.DecodeString(string(bytes.TrimSpace(field)))
 		if err != nil {
-			return nil, fmt.Errorf("%w: bad %s hex: %v", ErrMalformedEnvelope, names[i], err)
+			return nil, fmt.Errorf("%w: bad %s hex: %w", ErrMalformedEnvelope, names[i], err)
 		}
 
 		decoded[i] = raw

@@ -3,6 +3,7 @@ package cliapp
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -35,13 +36,13 @@ var createTemp = os.CreateTemp
 
 // launchEditor runs an interactive editor over path. The editor string may
 // carry arguments, e.g. "code --wait".
-var launchEditor = func(editor, path string, in io.Reader, out, errOut io.Writer) error {
+var launchEditor = func(ctx context.Context, editor, path string, in io.Reader, out, errOut io.Writer) error {
 	fields := strings.Fields(editor)
 	if len(fields) == 0 {
 		return fmt.Errorf("gansivault: no editor configured; set $EDITOR")
 	}
 
-	cmd := exec.Command(fields[0], append(fields[1:], path)...) // #nosec G204 -- the editor comes from the user's own $EDITOR
+	cmd := exec.CommandContext(ctx, fields[0], append(fields[1:], path)...) // #nosec G204 -- the editor comes from the user's own $EDITOR
 	cmd.Stdin = in
 	cmd.Stdout = out
 	cmd.Stderr = errOut
@@ -66,11 +67,11 @@ func editorCommand() string {
 // password into the tool works in CI.
 func newPrompt(in io.Reader, out io.Writer) gansivault.PromptFunc {
 	return func(prompt string) ([]byte, error) {
-		fmt.Fprint(out, prompt)
+		_, _ = fmt.Fprint(out, prompt)
 
 		if f, ok := in.(*os.File); ok && isTerminal(f) {
 			pw, err := readPasswordNoEcho(f)
-			fmt.Fprintln(out)
+			_, _ = fmt.Fprintln(out)
 
 			return pw, err
 		}
