@@ -16,6 +16,8 @@ Files written by `gansivault` are read by `ansible-vault`, and files written by 
 
 ## Install
 
+Requires Go 1.24 or newer (the library uses the standard library's `crypto/pbkdf2`).
+
 Library:
 
 ```sh
