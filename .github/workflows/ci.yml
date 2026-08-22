@@ -10,22 +10,24 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27"
 
 jobs:
   test:
     name: test (${{ matrix.os }}, go ${{ matrix.go }})
     runs-on: ${{ matrix.os }}
-    # go 1.24 is the floor, set by crypto/pbkdf2 and testing.T.Chdir. Pinning
-    # the toolchain to the installed one stops Go from silently fetching a
-    # newer release, which would make the lower matrix entry meaningless.
+    # go 1.27 is the floor, set by the go directive in go.mod. Pinning the
+    # toolchain to the installed one stops Go from silently fetching a newer
+    # release, which would make the lower matrix entry meaningless. Add the
+    # next release here as a second entry once it ships, so the matrix covers
+    # floor and latest again.
     env:
       GOTOOLCHAIN: local
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go: ["1.24", "1.26"]
+        go: ["1.27"]
     steps:
       - uses: actions/checkout@v7
 
