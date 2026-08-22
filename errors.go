@@ -43,4 +43,8 @@ var (
 	// ErrAlreadyEncrypted is returned when encrypting data that already
 	// carries a vault header.
 	ErrAlreadyEncrypted = errors.New("gansivault: input is already vault encrypted data")
+
+	// ErrNotUTF8 is returned by DecryptYAML when a decrypted value cannot be
+	// inlined into a YAML document because it is not valid UTF-8.
+	ErrNotUTF8 = errors.New("gansivault: decrypted value is not valid UTF-8")
 )

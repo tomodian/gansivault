@@ -164,6 +164,20 @@ func (a *App) Command() *cli.Command {
 				Action:    a.viewAction,
 			},
 			{
+				Name:      "yaml",
+				Usage:     "decrypt the !vault blocks inside YAML files and print the result",
+				ArgsUsage: "[FILE...]",
+				Description: "Every \"!vault |\" block in the document is replaced by its decrypted\n" +
+					"value, at any nesting depth, and everything else is passed through as\n" +
+					"written. This is the counterpart to encrypt_string, and the command to\n" +
+					"reach for when view fails because the file is a YAML document that\n" +
+					"merely contains vault blocks rather than being one vault payload.\n\n" +
+					"The result goes to standard output; the input file is never rewritten.\n" +
+					"With no FILE, or with -, the document is read from standard input.",
+				Flags:  append(passwordFlags(), outputFlag()),
+				Action: a.yamlAction,
+			},
+			{
 				Name:      "create",
 				Usage:     "create a new encrypted file in an editor",
 				ArgsUsage: "FILE",

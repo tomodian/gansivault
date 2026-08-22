@@ -137,12 +137,21 @@ db_password: !vault |
 
 `ExtractVaultText` reverses it, so a vaulted value lifted out of a vars file decrypts without any pre-processing.
 
+`DecryptYAML` goes one step further and rewrites a whole document, replacing every `!vault` block at any depth with its plaintext and leaving comments, key order and formatting alone:
+
+```go
+rendered, err := vault.DecryptYAML(doc)
+```
+
+Values that span several lines come back as block scalars, and values that a plain scalar would retype — `1234`, `yes`, anything holding a space — are double quoted, so the result reads back through a YAML parser as the exact original string.
+
 ## CLI
 
 ```
 gansivault encrypt          encrypt one or more files in place
 gansivault decrypt          decrypt one or more files in place
 gansivault view             print the decrypted contents of one or more files
+gansivault yaml             decrypt the !vault blocks inside YAML files and print the result
 gansivault create           create a new encrypted file in an editor
 gansivault edit             decrypt a file into an editor and re-encrypt it on save
 gansivault rekey            re-encrypt one or more files under a new password
@@ -168,6 +177,8 @@ Writing subcommands additionally take:
 
 `rekey` takes `--new-vault-id` and `--new-vault-password-file`; `encrypt_string` takes `--name`/`-n`, `--stdin-name` and `--indent`.
 
+`yaml` also takes `--output`/`-o`, which writes the rendered document to a file instead of stdout. It never rewrites its input, so it is safe to point at a file that is under version control.
+
 ### Examples
 
 ```sh
@@ -184,6 +195,11 @@ gansivault encrypt --vault-id prod@~/.vault_prod secrets.yml
 
 # A vars file entry Ansible can consume directly
 echo -n 'hunter2' | gansivault encrypt_string --vault-password-file ~/.vault_pass --stdin-name db_password
+
+# The reverse: a vars file with !vault entries, rendered in the clear.
+# view would refuse this file, because it is a YAML document rather than
+# one vault payload.
+gansivault yaml --vault-password-file ~/.vault_pass group_vars/prod/vars.yml > vars.decrypted.yml
 
 # Rotate a password across a tree
 gansivault rekey --vault-password-file ~/.vault_old \

@@ -143,6 +143,41 @@ func (a *App) viewAction(_ context.Context, cmd *cli.Command) error {
 	return nil
 }
 
+// yamlAction implements "gansivault yaml". Unlike decrypt it never rewrites
+// the input in place: the rendered document goes to standard output unless
+// --output names a file, which is what makes it safe to run over a playbook.
+func (a *App) yamlAction(_ context.Context, cmd *cli.Command) error {
+	vault, err := a.openVault(cmd)
+	if err != nil {
+		return err
+	}
+
+	inputs := targets(cmd)
+
+	out := cmd.String(flagOutput)
+	if out != "" && len(inputs) != 1 {
+		return errOutputSingleFile
+	}
+
+	for _, in := range inputs {
+		doc, err := a.readInput(in)
+		if err != nil {
+			return err
+		}
+
+		rendered, err := vault.DecryptYAML(doc)
+		if err != nil {
+			return fmt.Errorf("%s: %w", describe(in), err)
+		}
+
+		if err := a.writeOutput(out, rendered, fileMode(in)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // createAction implements "gansivault create".
 func (a *App) createAction(ctx context.Context, cmd *cli.Command) error {
 	path, err := singleFileArg(cmd, "create")

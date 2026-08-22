@@ -4,3 +4,7 @@ coverage.html
 *.test
 *.out
 tmp/
+
+# decrypted output, e.g. from "gansivault yaml"
+*.decrypted.yml
+*.decrypted.yaml

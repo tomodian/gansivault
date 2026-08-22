@@ -1030,3 +1030,151 @@ func blockFor(t *testing.T, out, name string) string {
 func indentOf(line string) int {
 	return len(line) - len(strings.TrimLeft(line, " "))
 }
+
+// yamlDoc is a small document with vault blocks at two depths, the shape that
+// makes "view" fail and "yaml" the right tool.
+func yamlDoc(t *testing.T) string {
+	t.Helper()
+
+	block := func(value, name string, indent int) string {
+		sealed, err := gansivault.Encrypt([]byte(value), []byte(testPassword))
+		if err != nil {
+			t.Fatalf("Encrypt: %v", err)
+		}
+
+		return gansivault.FormatYAML(sealed, name, indent)
+	}
+
+	return "hello: world\n\n" +
+		block("top", "secret", 2) + "\n\n" +
+		"nested:\n  value:\n    foo: foo\n\n    " + block("buried", "bar", 6) + "\n"
+}
+
+func TestYAMLCommand(t *testing.T) {
+	h := newHarness(t)
+	pw := h.passFile("pw", testPassword)
+
+	want := "hello: world\n\nsecret: top\n\nnested:\n  value:\n    foo: foo\n\n    bar: buried\n"
+
+	t.Run("to stdout", func(t *testing.T) {
+		src := h.file("doc.yml", yamlDoc(t), 0o600)
+		before := h.read(src)
+
+		h.mustRun("yaml", "--vault-password-file", pw, src)
+
+		if h.out() != want {
+			t.Fatalf("got:\n%s\nwant:\n%s", h.out(), want)
+		}
+
+		if h.read(src) != before {
+			t.Fatal("yaml must not modify the input file")
+		}
+	})
+
+	t.Run("to a file", func(t *testing.T) {
+		src := h.file("doc.yml", yamlDoc(t), 0o600)
+		dst := filepath.Join(h.dir, "out.yml")
+
+		h.mustRun("yaml", "--vault-password-file", pw, "-o", dst, src)
+
+		if got := h.read(dst); got != want {
+			t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+		}
+
+		if h.out() != "" {
+			t.Fatalf("nothing should reach stdout, got %q", h.out())
+		}
+	})
+
+	t.Run("from stdin", func(t *testing.T) {
+		h.stdin(yamlDoc(t))
+		h.mustRun("yaml", "--vault-password-file", pw)
+
+		if h.out() != want {
+			t.Fatalf("got:\n%s", h.out())
+		}
+	})
+
+	t.Run("several files", func(t *testing.T) {
+		a := h.file("a.yml", yamlDoc(t), 0o600)
+		b := h.file("b.yml", yamlDoc(t), 0o600)
+
+		h.mustRun("yaml", "--vault-password-file", pw, a, b)
+
+		if h.out() != want+want {
+			t.Fatalf("got:\n%s", h.out())
+		}
+	})
+
+	t.Run("a document without vault blocks is passed through", func(t *testing.T) {
+		doc := "# comment\nkey: value\nlist:\n  - one\n"
+		src := h.file("plain.yml", doc, 0o600)
+
+		h.mustRun("yaml", "--vault-password-file", pw, src)
+
+		if h.out() != doc {
+			t.Fatalf("got %q, want %q", h.out(), doc)
+		}
+	})
+}
+
+func TestYAMLCommandErrors(t *testing.T) {
+	h := newHarness(t)
+	pw := h.passFile("pw", testPassword)
+
+	t.Run("missing file", func(t *testing.T) {
+		if err := h.run("yaml", "--vault-password-file", pw, filepath.Join(h.dir, "absent")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("got %v, want os.ErrNotExist", err)
+		}
+	})
+
+	t.Run("wrong password names the file", func(t *testing.T) {
+		other := h.passFile("other", "not-it")
+		src := h.file("doc.yml", yamlDoc(t), 0o600)
+
+		err := h.run("yaml", "--vault-password-file", other, src)
+		if !errors.Is(err, gansivault.ErrDecryptionFailed) {
+			t.Fatalf("got %v, want ErrDecryptionFailed", err)
+		}
+
+		if !strings.Contains(err.Error(), "doc.yml") || !strings.Contains(err.Error(), "line 3") {
+			t.Fatalf("error should name the file and the line, got %v", err)
+		}
+	})
+
+	t.Run("no password source", func(t *testing.T) {
+		if err := h.run("yaml", h.file("doc.yml", yamlDoc(t), 0o600)); !errors.Is(err, errNoPassword) {
+			t.Fatalf("got %v, want errNoPassword", err)
+		}
+	})
+
+	t.Run("output with several inputs", func(t *testing.T) {
+		src := h.file("doc.yml", yamlDoc(t), 0o600)
+
+		err := h.run("yaml", "--vault-password-file", pw, "-o", filepath.Join(h.dir, "out.yml"), src, src)
+		if !errors.Is(err, errOutputSingleFile) {
+			t.Fatalf("got %v, want errOutputSingleFile", err)
+		}
+	})
+
+	t.Run("stdout write failure", func(t *testing.T) {
+		h := newHarness(t)
+		pw := h.passFile("pw", testPassword)
+		src := h.file("doc.yml", yamlDoc(t), 0o600)
+		h.app.Stdout = failWriter{}
+
+		if err := h.run("yaml", "--vault-password-file", pw, src); !errors.Is(err, errBoom) {
+			t.Fatalf("got %v, want errBoom", err)
+		}
+	})
+
+	t.Run("stdin read failure", func(t *testing.T) {
+		h := newHarness(t)
+		pw := h.passFile("pw", testPassword)
+		h.app.Stdin = failReader{}
+
+		if err := h.run("yaml", "--vault-password-file", pw); !errors.Is(err, errBoom) {
+			t.Fatalf("got %v, want errBoom", err)
+		}
+	})
+}
