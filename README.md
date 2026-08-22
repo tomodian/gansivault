@@ -3,7 +3,6 @@
 [![test](https://github.com/tomodian/gansivault/actions/workflows/test.yaml/badge.svg)](https://github.com/tomodian/gansivault/actions/workflows/test.yaml)
 [![release](https://github.com/tomodian/gansivault/actions/workflows/release.yml/badge.svg)](https://github.com/tomodian/gansivault/actions/workflows/release.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/tomodian/gansivault.svg)](https://pkg.go.dev/github.com/tomodian/gansivault)
-[![Go Report Card](https://goreportcard.com/badge/github.com/tomodian/gansivault)](https://goreportcard.com/report/github.com/tomodian/gansivault)
 
 A byte-compatible port of [Ansible Vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html) to Go, as a **zero-dependency library** and an **`ansible-vault` work-alike CLI**.
 
