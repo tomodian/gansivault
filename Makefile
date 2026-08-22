@@ -38,6 +38,16 @@ cover-html: cover
 lint:
 	golangci-lint run
 
+# Actions live in the workflow as full commit SHAs. pinact rewrites the tags
+# in .github/workflows to SHAs, and pin-check is what CI runs.
+.PHONY: pin
+pin:
+	pinact run
+
+.PHONY: pin-check
+pin-check:
+	pinact run --check --verify
+
 .PHONY: interop
 interop:
 	$(GO) test -v -run TestInteropWithRealAnsibleVault .

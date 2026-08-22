@@ -236,7 +236,10 @@ make test       # race detector
 make cover      # enforces the 100% gate locally
 make lint       # golangci-lint
 make interop    # round trip against a locally installed ansible-vault
+make pin        # re-pin GitHub Actions to commit SHAs with pinact
 ```
+
+CI actions are pinned to full commit SHAs by [pinact](https://github.com/suzuki-shunsuke/pinact), with the tag kept in a trailing comment. After bumping an action, run `make pin`; `make pin-check` is the check CI enforces.
 
 Test coverage is **100% of statements** across all three packages and CI fails below that.
 
