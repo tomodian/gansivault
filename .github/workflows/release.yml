@@ -1,0 +1,57 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Creating the tag and the release is all this needs.
+permissions:
+  contents: write
+
+# Two pushes landing close together would otherwise race for the same version
+# number, so releases are serialised and none are dropped.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      # The whole history is needed: the version is derived from the commits
+      # since the previous tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # An empty minor_pattern matches every commit, so an ordinary push bumps
+      # the minor version. A commit whose message contains "MAJOR:" bumps the
+      # major instead. The v prefix is what Go modules require of a tag.
+      - name: Bump version
+        uses: paulhatch/semantic-version@8d3552d38408b608e90e76237a2a5ac9fe524d04 # v5.3.0
+        id: semantic
+        with:
+          tag_prefix: "v"
+          major_pattern: "MAJOR:"
+          major_regexp_flags: ""
+          minor_pattern: ""
+          minor_regexp_flags: ""
+
+      - name: Show bump results
+        run: |
+          echo "version:          ${{ steps.semantic.outputs.version }}"          # e.g. 0.2.0
+          echo "version_tag:      ${{ steps.semantic.outputs.version_tag }}"      # e.g. v0.2.0
+          echo "previous_version: ${{ steps.semantic.outputs.previous_version }}" # e.g. 0.1.0
+          echo "increment:        ${{ steps.semantic.outputs.increment }}"        # e.g. 10
+          echo "changed:          ${{ steps.semantic.outputs.changed }}"          # e.g. true / false
+          echo "current-sha:      ${{ steps.semantic.outputs.current_commit }}"   # e.g. e909b0f5089bae7c8b7e22def69da02962b842fd
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
+        with:
+          tag: ${{ steps.semantic.outputs.version_tag }}
+          allowUpdates: false
+          generateReleaseNotes: true
+          skipIfReleaseExists: true
