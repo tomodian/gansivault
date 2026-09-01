@@ -177,6 +177,8 @@ Writing subcommands additionally take:
 
 `rekey` takes `--new-vault-id` and `--new-vault-password-file`; `encrypt_string` takes `--name`/`-n`, `--stdin-name` and `--indent`.
 
+`encrypt_string` takes its positional arguments literally, keeping leading dashes and surrounding whitespace, so a PEM key or any other `-----BEGIN`-style value can be passed directly. The exception is a value shaped exactly like a flag name — `-x` or `--xyz` — which is indistinguishable from a misspelled flag and so is still parsed as one; pass it after a `--` separator.
+
 `yaml` also takes `--output`/`-o`, which writes the rendered document to a file instead of stdout. It never rewrites its input, so it is safe to point at a file that is under version control.
 
 ### Examples
@@ -195,6 +197,11 @@ gansivault encrypt --vault-id prod@~/.vault_prod secrets.yml
 
 # A vars file entry Ansible can consume directly
 echo -n 'hunter2' | gansivault encrypt_string --vault-password-file ~/.vault_pass --stdin-name db_password
+
+# A value is taken literally, dashes and all, so a PEM key needs no escaping.
+# Only the stdin form keeps the trailing newline, because "$(...)" strips it.
+gansivault encrypt_string --vault-password-file ~/.vault_pass --name tls_key "$(cat key.pem)"
+gansivault encrypt_string --vault-password-file ~/.vault_pass --stdin-name tls_key < key.pem
 
 # The reverse: a vars file with !vault entries, rendered in the clear.
 # view would refuse this file, because it is a YAML document rather than

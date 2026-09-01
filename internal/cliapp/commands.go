@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/tomodian/gansivault"
 	"github.com/urfave/cli/v3"
@@ -14,6 +15,37 @@ import (
 // errOutputSingleFile guards the --output plus multiple inputs combination,
 // which ansible-vault also rejects.
 var errOutputSingleFile = errors.New("gansivault: --output can only be used with a single input")
+
+// notDefinedMessage is the flag parser's wording for an unknown option. It is
+// matched rather than wrapped because urfave/cli builds the error with
+// errors.New, so there is no sentinel to compare against.
+const notDefinedMessage = "flag provided but not defined"
+
+// errDashValue covers what rescueDashValues deliberately leaves alone: an
+// argument that is shaped exactly like a flag name, such as "-hunter2", and so
+// cannot be told apart from a misspelled flag. Both readings are offered.
+var errDashValue = errors.New(`gansivault: encrypt_string: an argument was parsed as a flag, but no such flag exists
+
+If it is a value that begins with "-", pass it after a "--" separator, or read
+it from standard input:
+    gansivault encrypt_string --vault-password-file FILE --name NAME -- -hunter2
+    gansivault encrypt_string --vault-password-file FILE --stdin-name NAME < key.pem
+
+Otherwise run "gansivault encrypt_string --help" for the flags this command accepts`)
+
+// encryptStringUsageError replaces the unknown-flag report with errDashValue.
+// The offending argument is never echoed back: for this command it may well be
+// the secret itself. Every other usage error keeps urfave/cli's own report.
+func encryptStringUsageError(_ context.Context, cmd *cli.Command, err error, _ bool) error {
+	if err != nil && strings.Contains(err.Error(), notDefinedMessage) {
+		return errDashValue
+	}
+
+	_, _ = fmt.Fprintf(cmd.Root().ErrWriter, "Incorrect Usage: %s\n\n", err)
+	_ = cli.ShowSubcommandHelp(cmd)
+
+	return err
+}
 
 // targets returns the files a command should act on. An empty argument list
 // means standard input, expressed as the single target "-".
@@ -319,7 +351,9 @@ func (a *App) encryptStringAction(_ context.Context, cmd *cli.Command) error {
 	names := cmd.StringSlice(flagName)
 	indent := cmd.Int(flagIndent)
 
-	values := cmd.Args().Slice()
+	// The values were wrapped before parsing so the flag parser could neither
+	// claim nor trim them.
+	values := unshieldValues(cmd.Args().Slice())
 
 	if len(values) == 0 {
 		raw, err := a.readAllStdin()

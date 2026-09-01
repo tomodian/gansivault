@@ -520,6 +520,10 @@ func TestRekeyErrors(t *testing.T) {
 	})
 }
 
+// pemKey stands in for the multi-line, dash-leading values encrypt_string is
+// most often pointed at.
+const pemKey = "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIA==\n-----END PRIVATE KEY-----\n"
+
 func TestEncryptStringCommand(t *testing.T) {
 	h := newHarness(t)
 	pw := h.passFile("pw", testPassword)
@@ -598,6 +602,78 @@ func TestEncryptStringCommand(t *testing.T) {
 		}
 	})
 
+	// A PEM key is the argument encrypt_string is most often handed, and the
+	// shell strips the user's quotes long before argv arrives, so it has to
+	// work bare as well as after a separator.
+	t.Run("a PEM key as a positional argument", func(t *testing.T) {
+		for _, args := range [][]string{
+			{"-n", "tls_key", pemKey},
+			{"-n", "tls_key", "--", pemKey},
+			{pemKey, "-n", "tls_key"},
+		} {
+			h.mustRun(append([]string{"encrypt_string", "--vault-password-file", pw}, args...)...)
+
+			if !strings.HasPrefix(h.out(), "tls_key: !vault |\n") {
+				t.Fatalf("%v: got:\n%s", args, h.out())
+			}
+
+			got, err := gansivault.Decrypt([]byte(gansivault.ExtractVaultText(h.out())), []byte(testPassword))
+			if err != nil {
+				t.Fatalf("%v: Decrypt: %v", args, err)
+			}
+
+			if string(got) != pemKey {
+				t.Fatalf("%v: got %q, want %q", args, got, pemKey)
+			}
+		}
+	})
+
+	// The flag parser would claim the dash-leading ones and trim the padded
+	// ones; a secret has to survive both untouched.
+	t.Run("values the parser would otherwise mangle", func(t *testing.T) {
+		for _, value := range []string{
+			"----BEGIN",
+			"-----BEGIN CERTIFICATE-----",
+			"--", // only reachable after an explicit separator
+			"-5",
+			"- leading dash and a space",
+			"  padded  ",
+			"trailing newline\n",
+			"\n",
+			"",
+		} {
+			args := []string{"encrypt_string", "--vault-password-file", pw, "-n", "v"}
+			if value == doubleDash {
+				args = append(args, doubleDash)
+			}
+
+			h.mustRun(append(args, value)...)
+
+			got, err := gansivault.Decrypt([]byte(gansivault.ExtractVaultText(h.out())), []byte(testPassword))
+			if err != nil {
+				t.Fatalf("%q: Decrypt: %v", value, err)
+			}
+
+			if string(got) != value {
+				t.Fatalf("got %q, want %q", got, value)
+			}
+		}
+	})
+
+	t.Run("a PEM key on stdin", func(t *testing.T) {
+		h.stdin(pemKey)
+		h.mustRun("encrypt_string", "--vault-password-file", pw, "--stdin-name", "tls_key")
+
+		got, err := gansivault.Decrypt([]byte(gansivault.ExtractVaultText(h.out())), []byte(testPassword))
+		if err != nil {
+			t.Fatalf("Decrypt: %v", err)
+		}
+
+		if string(got) != pemKey {
+			t.Fatalf("got %q, want %q", got, pemKey)
+		}
+	})
+
 	t.Run("matches the ansible fixture layout", func(t *testing.T) {
 		h.stdin("hunter2")
 		h.mustRun("encrypt_string", "--vault-password-file", pw, "--stdin-name", "mypass")
@@ -655,6 +731,33 @@ func TestEncryptStringErrors(t *testing.T) {
 
 		if err := h.run("encrypt_string", "--vault-password-file", empty, "x"); !errors.Is(err, gansivault.ErrEmptyPassword) {
 			t.Fatalf("got %v, want ErrEmptyPassword", err)
+		}
+	})
+
+	// A token shaped exactly like a flag name cannot be told apart from a
+	// misspelled flag, so it is still rejected rather than encrypted.
+	t.Run("a flag-shaped value", func(t *testing.T) {
+		for _, arg := range []string{"-hunter2", "--hunter2", "--naem"} {
+			if err := h.run("encrypt_string", "--vault-password-file", pw, arg); !errors.Is(err, errDashValue) {
+				t.Fatalf("%s: got %v, want errDashValue", arg, err)
+			}
+
+			// The argument may be the secret, so it must not be echoed back,
+			// and the flag list must not be dumped over it either.
+			if out := h.errOut() + h.out(); strings.Contains(out, "hunter2") || strings.Contains(out, "OPTIONS:") {
+				t.Fatalf("%s: leaked the value or dumped help:\n%s", arg, out)
+			}
+		}
+	})
+
+	t.Run("other usage errors keep the default report", func(t *testing.T) {
+		if err := h.run("encrypt_string", "--vault-password-file", pw, "--indent", "wide", "x"); err == nil {
+			t.Fatal("want an error")
+		}
+
+		// urfave/cli reports the failure on stderr and the help on stdout.
+		if !strings.Contains(h.errOut(), "Incorrect Usage:") || !strings.Contains(h.out(), "OPTIONS:") {
+			t.Fatalf("stderr:\n%s\nstdout:\n%s", h.errOut(), h.out())
 		}
 	})
 }

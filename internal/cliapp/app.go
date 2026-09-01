@@ -214,7 +214,14 @@ func (a *App) Command() *cli.Command {
 				ArgsUsage: "[STRING...]",
 				Description: "Each STRING is encrypted and printed as a !vault YAML block. Names given\n" +
 					"with --name are paired with the strings positionally. With no STRING, the\n" +
-					"value is read from standard input.",
+					"value is read from standard input.\n\n" +
+					"A STRING is taken literally, including leading dashes and surrounding\n" +
+					"whitespace, so a PEM key needs no escaping:\n\n" +
+					"    gansivault encrypt_string --name tls_key \"$(cat key.pem)\"\n" +
+					"    gansivault encrypt_string --stdin-name tls_key < key.pem\n\n" +
+					"Only the second keeps the trailing newline, since \"$(...)\" strips it. A\n" +
+					"STRING that is shaped like a flag name, -x or --xyz, is still parsed as\n" +
+					"one; pass it after a -- separator to encrypt it.",
 				Flags: append(encryptFlags(),
 					&cli.StringSliceFlag{
 						Name:    flagName,
@@ -232,7 +239,8 @@ func (a *App) Command() *cli.Command {
 					},
 					outputFlag(),
 				),
-				Action: a.encryptStringAction,
+				OnUsageError: encryptStringUsageError,
+				Action:       a.encryptStringAction,
 			},
 		},
 	}
@@ -240,7 +248,9 @@ func (a *App) Command() *cli.Command {
 
 // Run executes the command tree against args, which must include argv[0].
 func (a *App) Run(ctx context.Context, args []string) error {
-	return a.Command().Run(ctx, args)
+	cmd := a.Command()
+
+	return cmd.Run(ctx, shieldValueArgs(cmd, args))
 }
 
 // Main runs the CLI and returns a process exit code. Errors are reported on
