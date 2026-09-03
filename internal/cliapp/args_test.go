@@ -3,6 +3,8 @@ package cliapp
 import (
 	"slices"
 	"testing"
+
+	"github.com/urfave/cli/v3"
 )
 
 // TestShieldValueArgs pins down which tokens are treated as values, since the
@@ -95,6 +97,18 @@ func TestShieldValueArgs(t *testing.T) {
 				t.Fatalf("mutated the input: %q", tc.args)
 			}
 		})
+	}
+}
+
+// TestShieldValueArgsWithoutSubcommand covers the guard that keeps the
+// rewrite inert on a root command that defines no encrypt_string at all.
+func TestShieldValueArgsWithoutSubcommand(t *testing.T) {
+	root := &cli.Command{Name: "gansivault"}
+	args := []string{"gansivault", "encrypt_string", "-----BEGIN"}
+
+	got := shieldValueArgs(root, args)
+	if !slices.Equal(got, args) {
+		t.Fatalf("got %q, want %q", got, args)
 	}
 }
 
